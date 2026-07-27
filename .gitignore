@@ -1,0 +1,63 @@
+
+# Patient-derived data -- never commit.
+
+*.csv
+
+*.xlsx
+
+*.xls
+
+*.npy
+
+*.dcm
+
+*.nrrd
+
+outputs/
+
+data/
+
+cnn_crops/
+
+cnn_series_downloads/
+
+# Keep the dependency list
+
+!requirements.txt
+
+# Model weights
+
+*.pt
+
+*.pth
+
+*.ckpt
+
+MedImageInsights/
+
+# Python
+
+__pycache__/
+
+*.py[cod]
+
+.venv/
+
+venv/
+
+.ipynb_checkpoints/
+
+# OS and editors
+
+.DS_Store
+
+.vscode/
+
+.idea/
+
+# Local path configuration
+
+.env
+
+!.env.example
+
