@@ -4,7 +4,7 @@ Code for a staged evaluation of multimodal cancer survival prediction using clin
 
 **Author:** Hannah Chin (REU, Summer 2026)
 **Advisor:** Prof. Xuechen, Prof. Ji
-**Institution:** WSU / UC Berkeley
+**Institution:** WSU /Penn State / UC Berkeley
 
 ---
 
