@@ -87,7 +87,9 @@ for label, event_col, time_col in [
 
 evaluable = patient_table.dropna(subset=["efs_time_days", "efs_event"])
 excluded = len(patient_table) - len(evaluable)
-print(f"\nEvaluable for modelling: {len(evaluable)}")
+n_ev = int(evaluable["efs_event"].sum())
+print(f"\nEvaluable for modelling: {len(evaluable)} "
+      f"({n_ev} EFS events, {n_ev / len(evaluable):.1%} of the evaluable cohort)")
 print(f"Excluded (no recorded follow-up): {excluded}")
 
 # Confirm the exclusions are genuine rather than a coercion artefact.

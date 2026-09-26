@@ -18,7 +18,7 @@ This project investigates how different data modalities contribute to breast can
   Commons (`idc-index`, collection `duke_breast_cancer_mri`)
 - **Supplementary files** (from the TCIA collection page, DOI 10.7937/TCIA.e3sv-re93):
   `Annotation_Boxes.xlsx`, `Imaging_Features.xlsx`
-- **Endpoint:** Event-free survival (EFS), defined as the time from diagnosis to either death or recurrence, whichever occured first. A composite endpoint was used because overall survival (62 events) and recurrence alone (90 events) were too infrequent for reliable modeling. After excluding patients with missing follow-up information, the final cohort consisted of 689 patients with 118 observed events (12.8%). 
+- **Endpoint:** Event-free survival (EFS), defined as the time from diagnosis to either death or recurrence, whichever occured first. A composite endpoint was used because overall survival (62 events) and recurrence alone (90 events) were too infrequent for reliable modeling. After excluding patients with missing follow-up information, the final cohort consisted of 689 patients with 118 observed events (17.1%). 
 - **License:** imaging CC BY-NC 4.0; AIMI annotations CC BY 4.0
 
 > **No data files are included in this repository.** All data must be obtained
@@ -28,7 +28,7 @@ This project investigates how different data modalities contribute to breast can
 
 Features were added in tiers, ordered by how readily available each data type is in practice: clinical variables, molecular biomarkers, treatment information, radiomic features, and MRI-derived image embeddings. Each tier includes all features from the previous tiers, allowing the incremental predictive value of each additional modality to be measured. 
 
-Model performance is evaluated using nested cross-validation with five outer folds for unbiased performance estimation and three inner folds for hyperparameter tuning. To prevent data leakage, all preprocessing and feature selection are performed independently within each training fold. Radiomic features are selected using correlation filtering, univariate Cox screening, and LASSO-Cox, while image embeddings are reduced using PCA fit only on the training data. This ensures that performance gains reflect the added information from each modality rather than information leaking from the validation set. 
+Model performance is evaluated using nested cross-validation with five outer folds for unbiased performance estimation and three inner folds for hyperparameter tuning. To prevent data leakage, all preprocessing and feature selection are performed independently within each training fold, including median imputation of the clinical, molecular and treatment variables (only label-free one-hot encoding is done on the full cohort). Radiomic features are selected using correlation filtering, univariate Cox screening, and LASSO-Cox, while image embeddings are reduced using PCA fit only on the training data. This ensures that performance gains reflect the added information from each modality rather than information leaking from the validation set. 
 
 | Tier | Features added |
 |------|----------------|
@@ -69,6 +69,7 @@ pipeline.py                   Shared components: loading, tiers, models, nested 
 06_feature_count_experiment.py    How many radiomic features to retain
 07_modified_deepsurv_baseline.py  Reference configuration comparison
 08_risk_stratification.py     Kaplan-Meier by predicted risk group
+09_common_cohort_imaging.py   Paired C vs radiomics vs embeddings on one cohort
 10_make_figures.py            Figures from saved results
 
 imaging/
@@ -138,6 +139,7 @@ python 05_tier_f_combined.py
 python 06_feature_count_experiment.py
 python 07_modified_deepsurv_baseline.py
 python 08_risk_stratification.py
+python 09_common_cohort_imaging.py
 python 10_make_figures.py
 ```
 

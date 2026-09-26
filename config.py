@@ -42,11 +42,12 @@ RANDOM_STATE = 42
 OUTER_FOLDS = 5
 INNER_FOLDS = 3
 
-RADIOMICS_COVERAGE_MIN = 0.85     # drop radiomics columns missing more than this
+RADIOMICS_COVERAGE_MIN = 0.85     # keep radiomics columns with at least 85% non-missing values
 CORRELATION_THRESHOLD = 0.9       # drop one of any pair above this
 UNIVARIATE_TOP_K = 100            # candidates surviving to the LASSO stage
 LASSO_TARGET_RANGE = (20, 50)     # target sparsity for LASSO-Cox
 PCA_N_COMPONENTS = 20             # embedding dimensions retained per fold
+BOOTSTRAP_N = 2000                # patient-level bootstrap replicates
 
 # Column names in the IDC clinical table
 ID_COL = "dicom_patient_id"

@@ -36,8 +36,10 @@ tier_c = pl.build_feature_block(clinical, pl.TREATMENT_SPEC, base=tier_b)
 tiers = {"A_clinical": tier_a, "B_molecular": tier_b, "C_treatment": tier_c}
 for name, df in tiers.items():
     cols = pl.feature_columns(df)
-    tiers[name] = pl.coerce_numeric(df, cols)
-    print(f"  Tier {name}: N={len(df)}, features={len(cols)}")
+    tiers[name] = pl.coerce_numeric(df, cols)   # numeric only; imputed per fold later
+    n_missing = int(tiers[name][cols].isna().sum().sum())
+    print(f"  Tier {name}: N={len(df)}, features={len(cols)}, "
+          f"missing cells={n_missing} (imputed within folds)")
 
 # EVALUATE
 labels = {
@@ -56,7 +58,8 @@ for name, df in tiers.items():
                            "n_events": int(df["efs_event"].sum())})
 
 # Persist Tier C -- later tiers build on it, and rebuilding is wasted work.
-tier_c.to_csv(f"{cfg.OUTPUT_DIR}/tier_c_features.csv", index=False)
+# Saved numeric but NOT imputed: every later script imputes inside each fold.
+tiers["C_treatment"].to_csv(f"{cfg.OUTPUT_DIR}/tier_c_features.csv", index=False)
 print(f"\nSaved Tier C feature matrix to {cfg.OUTPUT_DIR}/tier_c_features.csv")
 
 # INCREMENTAL CHANGE 

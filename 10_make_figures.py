@@ -186,6 +186,40 @@ if reference and "comparison" in reference:
         print("Wrote reference_configuration_comparison.png")
 
 # ------------------------------------------------------------
+# Common-cohort paired imaging comparison (script 09)
+# ------------------------------------------------------------
+common_path = f"{cfg.RESULTS_DIR}/common_cohort_imaging.json"
+if os.path.exists(common_path):
+    with open(common_path) as f:
+        common = json.load(f)
+    models_cc = MODELS + ["Ensemble"]
+    keys = list(common["summary"][models_cc[0]]["delta"].keys())
+    fig, ax = plt.subplots(figsize=(10, 6))
+    step = 0.8 / len(models_cc)
+    for i, model in enumerate(models_cc):
+        for j, key in enumerate(keys):
+            d = common["summary"][model]["delta"][key]
+            y = j + (i - (len(models_cc) - 1) / 2) * step
+            ax.errorbar(d["estimate"], y,
+                        xerr=[[d["estimate"] - d["ci_low"]], [d["ci_high"] - d["estimate"]]],
+                        fmt="o", ms=6, capsize=3, color=COLOURS.get(model, "#555555"),
+                        label=model if j == 0 else None)
+    ax.axvline(0, color="black", lw=0.8)
+    ax.set_yticks(range(len(keys)))
+    ax.set_yticklabels(keys, fontsize=10)
+    ax.invert_yaxis()
+    ax.set_xlabel("Difference in C-index (95% paired patient-level bootstrap CI)", fontsize=11)
+    ax.set_title(f"Paired imaging comparison on a common cohort "
+                 f"(N={common['n_patients']}, {common['n_events']} events)",
+                 fontsize=13, fontweight="bold")
+    ax.legend(fontsize=9, loc="upper center", bbox_to_anchor=(0.5, -0.12), ncol=5, frameon=False)
+    ax.grid(alpha=0.3, axis="x")
+    plt.tight_layout()
+    plt.savefig(f"{cfg.FIGURE_DIR}/common_cohort_paired_deltas.png", dpi=150, bbox_inches="tight")
+    plt.close()
+    print("Wrote common_cohort_paired_deltas.png")
+
+# ------------------------------------------------------------
 # Printed table, for transcribing into the write-up
 # ------------------------------------------------------------
 print(f"\n{'=' * 80}\nMEAN C-INDEX BY TIER\n{'=' * 80}")

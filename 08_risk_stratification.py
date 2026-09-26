@@ -32,7 +32,7 @@ cfg.check_inputs(("PATIENT_TABLE_CSV",))
 # Tier C is the point where the modalities that measurably help are all present.
 tier = pd.read_csv(f"{cfg.OUTPUT_DIR}/tier_c_features.csv", low_memory=False)
 feature_cols = pl.feature_columns(tier)
-tier = pl.coerce_numeric(tier, feature_cols)
+tier = pl.coerce_numeric(tier, feature_cols)   # NaN kept; imputed per fold below
 
 X = tier[feature_cols].values.astype(float)
 time = tier["efs_time_days"].values
@@ -115,4 +115,4 @@ with open(f"{cfg.RESULTS_DIR}/risk_stratification.json", "w") as f:
     }, f, indent=2)
 print(f"\nSaved results to {cfg.RESULTS_DIR}/risk_stratification.json")
 
-print("\nNext: 09_nodal_prediction.py")
+print("\nNext: 09_common_cohort_imaging.py")

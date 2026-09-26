@@ -159,13 +159,16 @@ def feature_columns(df):
 
 
 def coerce_numeric(df, cols):
-    """Force numeric dtype and median-impute. Applied before any model fitting."""
+    """Force numeric dtype. Missing values are deliberately left as NaN.
+
+    Imputation happens later, inside each outer fold, using medians from the
+    training patients only (impute_from_train, called by build_fold_matrices).
+    Imputing here, over the whole cohort, would let held-out patients influence
+    the values filled in for training patients.
+    """
     df = df.copy()
     for c in cols:
-        df[c] = pd.to_numeric(df[c], errors="coerce")
-        if df[c].isna().any():
-            med = df[c].median()
-            df[c] = df[c].fillna(med if not pd.isna(med) else 0.0)
+        df[c] = pd.to_numeric(df[c], errors="coerce").astype(float)
     return df
 
 # Per-fold feature selection (training data only)
@@ -550,7 +553,10 @@ def run_nested_cv(df, fixed_cols, tier_name, radiomics_cols=None, emb_cols=None,
 
     results = {"CoxPH": [], "RSF": [], "GradientBoosting": [], "DeepSurv": [], "Ensemble": []}
     selection_history = []
-    oof_risk = np.full(len(df), np.nan)
+    # Out-of-fold risk for every model, plus the outer fold each patient was
+    # held out in. Needed for patient-level (paired) bootstrap comparisons.
+    oof = {name: np.full(len(df), np.nan) for name in results}
+    fold_id = np.full(len(df), -1, dtype=int)
 
     for fold, (train_pos, test_pos) in enumerate(outer_cv.split(positions, event_all)):
         X_train, X_test, selected = build_fold_matrices(
@@ -602,7 +608,10 @@ def run_nested_cv(df, fixed_cols, tier_name, radiomics_cols=None, emb_cols=None,
         results["Ensemble"].append(
             concordance_index_censored(event_test, time_test, ensemble_pred)[0])
 
-        oof_risk[test_pos] = fold_preds["CoxPH"]
+        for name, pred in fold_preds.items():
+            oof[name][test_pos] = pred
+        oof["Ensemble"][test_pos] = ensemble_pred
+        fold_id[test_pos] = fold
 
         print(f"  Fold {fold + 1}: " + " | ".join(
             f"{k}={results[k][-1]:.3f}" for k in ["CoxPH", "RSF", "GradientBoosting", "DeepSurv", "Ensemble"]))
@@ -613,18 +622,78 @@ def run_nested_cv(df, fixed_cols, tier_name, radiomics_cols=None, emb_cols=None,
         print(f"  {name:<18} {mean:.3f} +/- {np.std(scores):.3f}   [95% CI {lo:.3f}, {hi:.3f}]")
 
     if return_predictions:
-        return results, selection_history, oof_risk
+        return results, selection_history, {"oof": oof, "fold_id": fold_id}
     return results, selection_history
 
 # Statistics and persistence
 
 def bootstrap_ci(fold_scores, n_boot=2000, alpha=0.05):
-    """Bootstrap confidence interval over per-fold scores."""
+    """Bootstrap confidence interval over the five per-fold scores.
+
+    Resamples fold scores, not patients, so it is coarse. For paper-grade
+    intervals use patient_bootstrap on out-of-fold predictions instead.
+    """
     scores = np.array(fold_scores)
     rng = np.random.default_rng(cfg.RANDOM_STATE)
     boot = [np.mean(rng.choice(scores, size=len(scores), replace=True)) for _ in range(n_boot)]
     return float(np.mean(scores)), float(np.percentile(boot, 100 * alpha / 2)), \
         float(np.percentile(boot, 100 * (1 - alpha / 2)))
+
+
+def _safe_cindex(event, time, pred):
+    try:
+        return concordance_index_censored(event, time, pred)[0]
+    except Exception:
+        return np.nan
+
+
+def mean_fold_cindex(pred, time, event, fold_id):
+    """Mean of the per-outer-fold C-indices, computed from out-of-fold predictions.
+
+    Risk scores from different fold models are not on a common scale, so the
+    C-index is computed within each fold and then averaged -- the same quantity
+    reported by run_nested_cv.
+    """
+    event = np.asarray(event).astype(bool)
+    return float(np.nanmean([_safe_cindex(event[fold_id == f], time[fold_id == f],
+                                          pred[fold_id == f])
+                             for f in np.unique(fold_id)]))
+
+
+def patient_bootstrap(preds, time, event, fold_id, n_boot=None, seed=None):
+    """Patient-level bootstrap, resampling patients within each outer fold.
+
+    preds is a dict {label: out-of-fold risk array}. The same resampled patients
+    are used for every label in a replicate, so differences between labels are
+    paired. Returns {label: array of n_boot mean-fold C-indices}.
+    """
+    n_boot = n_boot or cfg.BOOTSTRAP_N
+    rng = np.random.default_rng(cfg.RANDOM_STATE if seed is None else seed)
+    event = np.asarray(event).astype(bool)
+    folds = [np.where(fold_id == f)[0] for f in np.unique(fold_id)]
+    out = {k: np.empty(n_boot) for k in preds}
+    for b in range(n_boot):
+        samples = [rng.choice(idx, size=len(idx), replace=True) for idx in folds]
+        for k, pred in preds.items():
+            out[k][b] = np.nanmean([_safe_cindex(event[s], time[s], pred[s]) for s in samples])
+    return out
+
+
+def summarise_bootstrap(point, boot, alpha=0.05):
+    """Point estimate with percentile CI from a bootstrap distribution."""
+    boot = boot[~np.isnan(boot)]
+    return {"estimate": float(point),
+            "ci_low": float(np.percentile(boot, 100 * alpha / 2)),
+            "ci_high": float(np.percentile(boot, 100 * (1 - alpha / 2)))}
+
+
+def paired_delta(point_a, point_b, boot_a, boot_b, alpha=0.05):
+    """Difference b - a with paired bootstrap CI and a two-sided bootstrap p-value."""
+    d = boot_b - boot_a
+    d = d[~np.isnan(d)]
+    summary = summarise_bootstrap(point_b - point_a, d, alpha)
+    summary["p_value"] = float(min(1.0, 2 * min(np.mean(d <= 0), np.mean(d >= 0))))
+    return summary
 
 
 def save_results(name, results, extra=None):

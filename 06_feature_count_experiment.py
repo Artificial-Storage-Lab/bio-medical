@@ -9,7 +9,7 @@ LASSO is not used here because it chooses its own sparsity and cannot be forced
 to return an exact count. Selection stops after correlation removal instead,
 which permits exact truncation.
 
-Slow -- 4 settings x 5 folds x 4 models, plus a univariate Cox screen over ~450
+Slow -- 5 settings (4 counts + no selection) x 5 folds x 4 models, plus a univariate Cox screen over ~450
 features per fold.
 
     python 06_feature_count_experiment.py
